@@ -5,7 +5,7 @@ c.ServerProxy.servers = {
         'command': [
             'streamlit',
             'run',
-            'work/streamlit-v2-example/helloworld.py',
+            'work/datalake_streamlit/metadata_app.py',
             '--server.port', '8501',
             '--browser.serverAddress', '0.0.0.0',
             '--server.runOnSave', '1',

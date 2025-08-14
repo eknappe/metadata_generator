@@ -11,12 +11,14 @@ stages:
 image_build:
   stage: build
   image: docker:stable
+  services:
+    - docker:dind
   before_script:
-    - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN http://$CI_REGISTRY
+    - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
   script:
     - CI_COMMIT_SHA_7=$(echo $CI_COMMIT_SHA | cut -c1-7)
     - docker build --tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA_7 .
     - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA_7
-  tags:
-    - image_build
+#  tags:
+#    - image_build
     
