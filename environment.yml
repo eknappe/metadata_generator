@@ -4,6 +4,9 @@ channels:
 dependencies:
   - pip
   - pip:
-    - streamlit>=1.10.0
+    - streamlit>=1.48.0
     - jupyter-server-proxy>=3.2.1
+    - requests>=2.32.0
+    - pandas>=2.3.0
+    - numpy>=2.3.0
 prefix: "/opt/conda"
