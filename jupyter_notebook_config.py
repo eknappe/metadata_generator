@@ -5,7 +5,7 @@ c.ServerProxy.servers = {
         'command': [
             'streamlit',
             'run',
-            'work/datalake_streamlit/metadata_app.py',
+            'work/datalakes_streamlit/metadata_app.py',
             '--server.port', '8501',
             '--browser.serverAddress', '0.0.0.0',
             '--server.runOnSave', '1',
