@@ -186,9 +186,9 @@ def validate_coordinates(coord_str, coord_type):
     try:
         coord_float = float(coord_str)
         if coord_type == "latitude" and not (-90 <= coord_float <= 90):
-            print(f"Warning: latitude{coord_float} is outside expected range (-90 to 90), please enter as decimal degree")
+            return False, f"Warning: latitude{coord_float} is outside expected range (-90 to 90), please enter as decimal degree"
         elif coord_type == "longitude" and not (-180 <= coord_float <= 180):
-            print(f"Warning: longitude{coord_float} is outside expected range (-180 to 180), please enter as decimal degree")
+            return False, f"Warning: longitude{coord_float} is outside expected range (-180 to 180), please enter as decimal degree"
             
         return True, ""
     
@@ -239,12 +239,16 @@ def orcid_lookup_component(name_key_first, name_key_last, result_key):
                 with st.spinner("Search for ORCID ID..."):
                     results = lookup_orcid_id(first_name, last_name)
                     st.session_state[f'orcid_results_{result_key}'] = results
+                    #search was performed
+                    st.session_state[f'orcid_search_performed_{result_key}'] = True
                 
             else:
                 st.error("Please enter both first and last name")
                     
     #display the results
     results = st.session_state.get(f'orcid_results_{result_key}', [])
+    #ensured the search was performed
+    search_performed = st.session_state.get(f'orcid_search_performed_{result_key}', False)
     
     if results:
         if len(results) == 1:
@@ -279,7 +283,8 @@ def orcid_lookup_component(name_key_first, name_key_last, result_key):
                         st.session_state[result_key] = result
                         st.session_state[f'orcid_results_{result_key}'] = []
                         st.rerun()
-
+    elif search_performed and not results:
+        st.error("No ORCID match found. Doublecheck first and last name or use manunal ORCID entry.")
                 
 #look up ROR in streamlit formatting
 def ror_lookup_component(affiliation_key, result_key):
@@ -1109,11 +1114,13 @@ def location_section():
                 lat_valid, lat_msg = validate_coordinates(latitude, "latitude")
                 lon_valid, lon_msg = validate_coordinates(longitude, "longitude")
                 
-                if not lat_valid:
-                    st.error(f"Invalid latitude: {lat_msg}")
-                if not lon_valid:
-                    st.error(f"Invalid longitude: {lon_msg}")
+                if not lat_valid or not lon_valid:
+                    if not lat_valid:
+                        st.error(f"Invalid latitude: {lat_msg}")
+                    if not lon_valid:
+                        st.error(f"Invalid longitude: {lon_msg}")
                 else:
+                    #only proceed if both coordinates are valid
                     #yay create location object
                     new_location= {
                         'lake_name': lake_name.strip(),
