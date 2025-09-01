@@ -36,6 +36,11 @@ if 'current_step' not in st.session_state:
 
 #import the api function developed for v1 of metadata generator
 
+##set the different data/software licenses
+DATASET_LICENSES = ["CC BY 4.0","CC0", "CC BY-NC 4.0", "CC BY-SA 4.0"]
+SOFTWARE_LICENSES = ["MIT", "Apache License 2.0", "GNU GPL-3.0", "GNU GLP-2.0"]
+
+
 #orcid id
 def lookup_orcid_id(first_name, last_name, max_results =5):
     
@@ -199,7 +204,15 @@ def validate_doi(doi_str):
     #remove common doi prefixes if present
     cleandoi = doi_str.replace('https://doi.org/', '').replace('doi:', '')
     
-    doi_pattern =r'^10\.\d{4,}/\S+$'
+    #remove trailing unwanted characters:
+    doi_match = re.match(r'^(10\.\d{4,}/[a-zA-Z0-9\-_.()]+)', cleandoi)
+    
+    if doi_match:
+        cleandoi = doi_match.group(1)
+    else:
+        cleandoi = re.sub(r'[./]+$', '', cleandoi)
+    
+    doi_pattern = r'^10\.\d{4,}/[a-zA-Z0-9\-_.()]+$'
     
     if re.match(doi_pattern, cleandoi):
         return True, cleandoi
@@ -219,9 +232,9 @@ def orcid_lookup_component(name_key_first, name_key_last, result_key):
     
     #display them nicely:
     col1, col2 = st.columns([3,1])
-    #in the columns but the buttons
+    #in the columns 
     with col1:
-        if st.button("🔸 Look up ORCID ID", key =f"orcid_btn_{result_key}"):
+        if st.button("🔸 Look up ORCID ID 🔸", key =f"orcid_btn_{result_key}"):
             if first_name and last_name:
                 with st.spinner("Search for ORCID ID..."):
                     results = lookup_orcid_id(first_name, last_name)
@@ -275,7 +288,7 @@ def ror_lookup_component(affiliation_key, result_key):
     #display it nicely
     col1, col2 = st.columns([3,1])
     with col1:
-        if st.button("🔸 Lookup ROR ID", key=f"ror_btn_{result_key}"):
+        if st.button("🔸 Lookup ROR ID 🔸", key=f"ror_btn_{result_key}"):
             if affiliation:
                 with st.spinner("Searching ROR database..."):
                     results = lookup_ror_id(affiliation)
@@ -369,12 +382,12 @@ def generate_metadata():
         "data": {
             "type":"dois",
             "attributes": {
-                "titles":[{"title": st.session_state.get('dataset_title', '')}],
+                "titles":[{"title": st.session_state.get('dataset_title', ''),"xml:lang":"en-us"}],
                 "creators": [],
                 "publisher": "Datalakes",
                 "publicationYear": st.session_state.get('publication_year', datetime.now().year),
                 "resourceType": st.session_state.get('resource_type', 'Dataset'),
-                "descriptions": [{"description": st.session_state.get('dataset_description', ''), "descriptionType": "Abstract"}]
+                "descriptions": [{"description": st.session_state.get('dataset_description', ''), "descriptionType": "Abstract", "xml:lang":"en-us"}]
                 }}}
     
     #author/creator information
@@ -489,14 +502,14 @@ def generate_metadata():
     if keywords:
         keywords_list = [k.strip() for k in keywords.replace('\n', ',').split(',') if k.strip()]
         if keywords_list:
-            metadata["data"]["attributes"]["subjects"] = [{"subject": kw} for kw in keywords_list]
+            metadata["data"]["attributes"]["subjects"] = [{"subject": kw, "xml:lang":"en-us"} for kw in keywords_list]
     
     #add optional fields
     if st.session_state.get('dataset_doi'):
         metadata["data"]["attributes"]["doi"] = st.session_state['dataset_doi']
     
     if st.session_state.get('license'):
-        metadata["data"]["attributes"]["rightsList"] = [{"rights": st.session_state['license']}]
+        metadata["data"]["attributes"]["rightsList"] = [{"rights": st.session_state['license'],"xml:lang":"en-us"}]
     
     if st.session_state.get('dataset_version'):
         metadata["data"]["attributes"]["version"] = st.session_state['dataset_version']
@@ -505,7 +518,7 @@ def generate_metadata():
 
 #the "app"
 def main():
-    st.title("Datalakes Matadata Generator")
+    st.title("Datalakes Metadata Generator")
     st.markdown("Create DataCite compliant metadata for your datasets")
 
     with st.expander("Author Information", expanded = True):
@@ -545,18 +558,19 @@ def author_section():
     
     #orcid lookup
     st.subheader("ORCID ID")
-    if st.session_state.get('author_first_name') and st.session_state.get('author_last_name'):
-        orcid_lookup_component('author_first_name','author_last_name', 'author_orcid_data')
-        
-        #show selected
-        author_orcid = st.session_state.get('author_orcid_data', {})
-        if author_orcid:
-            st.success(f"Selected ORCID: {author_orcid['display_name']} ({author_orcid['orcid_id']})")
+    orcid_lookup_component('author_first_name','author_last_name', 'author_orcid_data')
     
+    #show selected
+    author_orcid = st.session_state.get('author_orcid_data', {})
+   
+    if author_orcid:
+        st.success(f"Selected ORCID: {author_orcid['display_name']} ({author_orcid['orcid_id']})")
+
     with st.expander("Or enter ORCID manually"):
         manual_author_orcid = st.text_input("ORCID ID (format: 0000-0000-0000-0000)", key = "manual_author_orcid",
                                              placeholder = "0000-0000-0000-0000")
         if manual_author_orcid:
+            manual_author_orcid = manual_author_orcid.strip()
             #check to make sure it is correct
             orcid_pattern=r'^\d{4}-\d{4}-\d{4}-\d{4}$'
             if re.match(orcid_pattern, manual_author_orcid):
@@ -610,16 +624,40 @@ def dataset_section():
     with col1:
         st.number_input("Publication year", key="publication_year", min_value = 1950, max_value= 2050, value = datetime.now().year)
     with col2:
-        st.selectbox("Resource type", ["Dataset", "Software", "Collection", "Other"], key="resource_type")
+        resource_type = st.selectbox("Resource type", ["Dataset", "Software", "Collection", "Other"], key="resource_type")
     
     col1,col2 = st.columns(2)
     with col1:
         st.text_input("Version", key = "dataset_version", placeholder = "1.0",
                       value=st.session_state.get('dataset_version', ''))
     with col2:
-        license_options = ["CC BY 4.0","CC BY-NC 4.0", "CC BY-SA 4.0", "MIT"]
-        license_value=st.session_state.get('license', 'CC BY 4.0')
-        license_select = st.selectbox("License", license_options, key="license")
+        if resource_type == "Dataset":
+            license_options = DATASET_LICENSES
+            license_help="Select an appropriate license for your dataset. CC BY 4.0 is recommended."
+            default_license = "CC BY 4.0"
+        elif resource_type == "Software":
+            license_options = SOFTWARE_LICENSES
+            license_help="Select an appropriate license for your software. MIT or Apache is recommended."
+            default_license = "MIT"
+        else: #not data or software give data options
+            license_options = DATASET_LICENSES
+            license_help="Select an appropriate license for your resource. CC BY 4.0 is recommended."
+            default_license = "CC BY 4.0"
+            
+        current_license = st.session_state.get('license', default_license)
+        
+        if current_license not in license_options:
+            current_license = default_license
+            st.session_state['license'] = current_license
+            
+        #find the index of current license for the selectbox
+        try:
+            license_index =license_options.index(current_license)
+        except ValueError:
+            license_index = 0
+            
+        license_select = st.selectbox(
+            "License", options = license_options, index = license_index, help = license_help, key = "license")
     
     st.subheader("Additional information")
     
@@ -661,11 +699,29 @@ def contributors_section():
     if 'contributors' not in st.session_state:
         st.session_state.contributors = []
     
+    #handle editing exisiting contirbutors 
+    editing_index = st.session_state.get('edit_contributor_index', None)
+    if editing_index is not None:
+        st.info(f"Editing contributor #{editing_index +1}")
+        
+        #get the contributor being edited
+        if editing_index < len(st.session_state.contributors):
+            editing_contrib = st.session_state.contributors[editing_index]
+            
+            #prepopulate with the existing data
+            names = editing_contrib['name'].split(' ', 1)
+            if 'temp_contrib_first' not in st.session_state:
+                st.session_state.temp_contrib_first = names[0] if len(names)>0 else ''
+            if 'temp_contrib_last' not in st.session_state:
+                st.session_state.temp_contrib_last = names[1] if len(names)>1 else ''
+            if 'temp_contrib_affiliation' not in st.session_state:
+                st.session_state.temp_contrib_affiliation = editing_contrib.get('affiliation' ,'') 
+     
     if st.session_state.contributors:
         st.subheader("Contributors")
         for i, contrib in enumerate(st.session_state.contributors):
             with st.expander(f"{contrib['name']} - {contrib.get('affiliation', 'No affiliation')}"):
-                col1, col2 = st.columns([3,1])
+                col1, col2, col3 = st.columns([3,1,1])
                 
                 with col1:
                     st.write(f"**Name:** {contrib['name']}")
@@ -688,32 +744,156 @@ def contributors_section():
                     else:
                         st.write("**ROR ID:** Not specified")
                 
+                #add edit option
                 with col2:
-                    if st.button(f"Remove", key=f"remove_contrib_{i}"):
+                    if st.button("Edit", key=f"edit_contrib_{i}"):
+                        #store exisiting contributor data for editing
+                        st.session_state.edit_contributor_index = i
+                        names = contrib['name'].split(' ',1)
+                        st.session_state.temp_contrib_first = names[0] if len(names)>0 else ''
+                        st.session_state.temp_contrib_last = names[1] if len(names)>1 else ''
+                        st.session_state.temp_contrib_affiliation = contrib.get('affiliation', '')
+                        st.session_state.temp_contrib_orcid = contrib.get('orcid_data', {})
+                        st.session_state.temp_contrib_ror= contrib.get('ror_data', {})
+                        st.rerun()
+                    
+                #remove the contributor
+                with col3:
+                    if st.button("Remove", key=f"remove_contrib_{i}"):
                         st.session_state.contributors.pop(i)
                         st.rerun()
             
         st.write(f"**Total contributors:** {len(st.session_state.contributors)}")
         st.divider()
     
-    #add contributors
-    st.subheader("Add new contributors")
-    
-    st.write("**Basic information**")
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        #trying hard to not have the fields autopopulated with previous entry
-        #addig this value = "" ... to try and stop that 
-        contrib_first = st.text_input("First name", key="contrib_first_name", placeholder="Enter first name",
-                                      value="" if st.session_state.get("form_needs_clearing") else st.session_state.get("contrib_first_name", ""))
-    with col2:
-        contrib_last = st.text_input("Last name", key="contrib_last_name", placeholder="Enter last name",
-                                     value="" if st.session_state.get("form_needs_clearing") else st.session_state.get("contrib_last_name", ""))
-    
-    st.write("**ORCID ID**")
-    if contrib_first and contrib_last:
+    #check if were editing an existing contributor ... this feels highly inefficient way of doing this but were going with it for now
+    editing_index = st.session_state.get('edit_contributor_index', None)
+    if editing_index is not None and editing_index < len(st.session_state.contributors):
+        st.subheader(f"Edit contributor #{editing_index +1}")
+
+
+        col1, col2 = st.columns(2)
         
+        with col1:
+            #trying hard to not have the fields autopopulated with previous entry
+            #addig this value = "" ... to try and stop that 
+            contrib_first = st.text_input("First name", key="temp_contrib_first", placeholder="Enter first name",
+                                          value=st.session_state.get('temp_contrib_first', ''))
+        with col2:
+            contrib_last = st.text_input("Last name", key="temp_contrib_last", placeholder="Enter last name",
+                                         value=st.session_state.get('temp_contrib_last', ''))
+        
+        st.write("**ORCID ID**")
+
+            
+        orcid_lookup_component('temp_contrib_first', 'temp_contrib_last', 'temp_contrib_orcid_lookup')
+        
+        #show selected orcid
+        temp_orcid = st.session_state.get('temp_contrib_orcid_lookup', {})
+        if temp_orcid:
+            st.success(f"Selected ORCID: {temp_orcid['display_name']} ({temp_orcid['orcid_id']})")
+
+        #or manual entry
+        with st.expander("OR enter ORCID manually"):
+            manual_orcid = st.text_input("ORCID ID (format: 0000-0000-0000-0000)", key = "temp_manual_contrib_orcid",
+                                                 placeholder = "0000-0000-0000-0000")
+            if manual_orcid:
+                #check to make sure the format is correct
+                manual_orcid = manual_orcid.strip()
+                orcid_pattern=r'^\d{4}-\d{4}-\d{4}-\d{4}$'
+                if re.match(orcid_pattern, manual_orcid):
+                    st.success("Valid ORCID format")
+                else:
+                    st.error("Invalid ORCID format. Expected: 0000-0000-0000-0000")
+    
+        #affiliation of contributors
+        st.write("**Affiliation**")
+        
+        contrib_affiliation = st.text_input("Institution/Organization:", key="temp_contrib_affiliation", 
+                                            placeholder="Enter institution name",
+                                            value=st.session_state.get('temp_contrib_affiliation', ''))
+        
+        #look up with ROR
+        if contrib_affiliation:
+            st.write("**ROR ID lookup**")
+            ror_lookup_component('temp_contrib_affiliation', 'temp_contrib_ror_lookup')
+            
+            #show selected ror
+            temp_ror = st.session_state.get('temp_contrib_ror_lookup', {})
+            if temp_ror:
+                st.success(f"Selected ROR: {temp_ror['name']} (ROR ID:{temp_ror['ror_id']})")
+        
+        st.divider()
+        col1,col2,col3 = st.columns(3)
+        
+        with col1:
+            if st.button("Save change", type = "primary", key ="save_edit_contrib"):
+                if contrib_first and contrib_last:
+                    #update them
+                    updated_contrib={
+                        'name':f"{contrib_first.strip()} {contrib_last.strip()}",
+                        'affiliation': contrib_affiliation.strip() if contrib_affiliation else ""}
+                    
+                    temp_orcid = st.session_state.get('temp_contrib_orcid_lookup', {})
+                    manual_orcid = st.session_state.get('temp_manual_contrib_orcid', '').strip()
+                    
+                    if temp_orcid:
+                        updated_contrib['orcid_data']= temp_orcid
+                    elif manual_orcid and re.match(r'^\d{4}-\d{4}-\d{4}-\d{4}$', manual_orcid):
+                        updated_contrib['orcid_data'] = {
+                            'orcid_id': manual_orcid,
+                            'display_name': f"{contrib_first} {contrib_last}",
+                            'institution':""
+                            }
+                    
+                    #deal with ror
+                    temp_ror = st.session_state.get('temp_contrib_ror_lookup', {})
+                    if temp_ror:
+                        updated_contrib['ror_data'] = temp_ror
+                        
+                    #update the contributor list now
+                    st.session_state.contributors[editing_index] = updated_contrib
+                    
+                    #clear the editing state so slate is clean
+                    del st.session_state.edit_contributor_index
+                    for key in ['temp_contrib_first','temp_contrib_last', 'temp_contrib_affiliation',
+                                'temp_contrib_orcid_lookup','temp_contrib_ror_lookup', 'temp_contrib_ror_lookup']:
+                        if key in st.session_state:
+                            del st.session_state[key]
+                            st.rerun()
+                    
+                else:
+                    st.error("Please enter both first and last name")
+                        
+        with col2:
+            if st.button("Cancel edit", key="cancel_edit_contrib"):
+                del st.session_state.edit_contributor_index
+                for key in ['temp_contrib_first','temp_contrib_last', 'temp_contrib_affiliation',
+                            'temp_contrib_orcid_lookup','temp_contrib_ror_lookup', 'temp_contrib_ror_lookup']:
+                    if key in st.session_state:
+                        del st.session_state[key]
+                        st.rerun()
+    
+    #why did i do it this way
+    #add new contributors
+    else:
+        st.subheader("Add new contributors")
+        st.write("**Basic information**")
+
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            #trying hard to not have the fields autopopulated with previous entry
+            #addig this value = "" ... to try and stop that 
+            contrib_first = st.text_input("First name", key="contrib_first_name", placeholder="Enter first name",
+                                          value="" if st.session_state.get("form_needs_clearing") else st.session_state.get("contrib_first_name", ""))
+        with col2:
+            contrib_last = st.text_input("Last name", key="contrib_last_name", placeholder="Enter last name",
+                                         value="" if st.session_state.get("form_needs_clearing") else st.session_state.get("contrib_last_name", ""))
+        
+        st.write("**ORCID ID**")
+            
         orcid_lookup_component('contrib_first_name', 'contrib_last_name', 'current_contrib_orcid')
         
         #show selected orcid
@@ -723,97 +903,104 @@ def contributors_section():
             # if current_contrib_orcid.get('institution'):
             #     st.info(f"ORCID suggested affiliation: {current_contrib_orcid['institution']}")
     
-    #or manual entry
-    with st.expander("OR enter ORCID manually"):
-        manual_contrib_orcid = st.text_input("ORCID ID (format: 0000-0000-0000-0000)", key = "manual_contrib_orcid",
-                                             placeholder = "0000-0000-0000-0000")
-        if manual_contrib_orcid:
-            #check to make sure the format is correct
-            orcid_pattern=r'^\d{4}-\d{4}-\d{4}-\d{4}$'
-            if re.match(orcid_pattern, manual_contrib_orcid):
-                st.success("Valid ORCID format")
-            else:
-                st.error("Invalid ORCID format. Expected: 0000-0000-0000-0000")
-    
-    #affiliation of contributors
-    st.write("**Affiliation**")
-    
-    #did orcid hook us up?
-    current_contrib_orcid = st.session_state.get('current_contrib_orcid', {})
-    suggested_affiliation = current_contrib_orcid.get('institution', '')
-    
-    #autofill the suggested affiliation
-    if suggested_affiliation and "contrib_affiliation" not in st.session_state:
-        st.session_state["contrib_affiliation"] = suggested_affiliation
-    #just makes it messy
-    # if suggested_affiliation:
-    #     st.info(f"ORCID suggest: {suggested_affiliation}")
-    
-    contrib_affiliation = st.text_input("Institution/Organization:", key="contrib_affiliation", 
-                                        placeholder="Enter institution name",
-                                        value="" if st.session_state.get("form_needs_clearing") else st.session_state.get("contrib_affiliation", ""))
-    
-    #look up with ROR
-    if contrib_affiliation:
-        st.write("**ROR ID lookup**")
-        ror_lookup_component('contrib_affiliation', 'current_contrib_ror')
+        #or manual entry
+        with st.expander("OR enter ORCID manually"):
+            manual_contrib_orcid = st.text_input("ORCID ID (format: 0000-0000-0000-0000)", key = "manual_contrib_orcid",
+                                                 placeholder = "0000-0000-0000-0000")
+            if manual_contrib_orcid:
+                #check to make sure the format is correct
+                manual_contrib_orcid = manual_contrib_orcid.strip()
+                orcid_pattern=r'^\d{4}-\d{4}-\d{4}-\d{4}$'
+                if re.match(orcid_pattern, manual_contrib_orcid):
+                    st.success("Valid ORCID format")
+                else:
+                    st.error("Invalid ORCID format. Expected: 0000-0000-0000-0000")
         
-        #show selected ror
-        current_contrib_ror = st.session_state.get('current_contrib_ror', {})
-        if current_contrib_ror:
-            st.success(f"Selected ROR: {current_contrib_ror['name']} (ROR ID:{current_contrib_ror['ror_id']})")
-    
-    if st.session_state.get("form_needs_clearing"):
-        st.session_state.form_needs_clearing = False
+        #affiliation of contributors
+        st.write("**Affiliation**")
         
-    #add more friends
-    st.divider()
+        #did orcid hook us up?
+        current_contrib_orcid = st.session_state.get('current_contrib_orcid', {})
+        suggested_affiliation = current_contrib_orcid.get('institution', '')
         
-    col1, col2= st.columns([1,1])
-    with col1:
-        add_contributor = st.button("Add this contributor", type = "primary")
-    with col2:
-        clear_form = st.button("Clear form")
-    
-    #adding contrib
-    if add_contributor:
-        st.session_state.form_needs_clearing = True
-        if not contrib_first or not contrib_last:
-            st.error("Please enter first and last name")
+        #autofill the suggested affiliation
+        if st.session_state.get("form_needs_clearing"):
+            affiliation_value = ""
+        elif suggested_affiliation and "contrib_affiliation" not in st.session_state:
+            affiliation_value = suggested_affiliation
         else:
-            #prepare the data
-            contributor_data = {'name': f"{contrib_first.strip()} {contrib_last.strip()}",
-                                'affiliation': contrib_affiliation.strip() if contrib_affiliation else ""}
+            affiliation_value = st.session_state.get("contrib_affiliation", "")
+        #just makes it messy
+        # if suggested_affiliation:
+        #     st.info(f"ORCID suggest: {suggested_affiliation}")
+        
+        contrib_affiliation = st.text_input("Institution/Organization:", key="contrib_affiliation", 
+                                            placeholder="Enter institution name",
+                                            value=affiliation_value)
+        
+        #look up with ROR
+        if contrib_affiliation:
+            st.write("**ROR ID lookup**")
+            ror_lookup_component('contrib_affiliation', 'current_contrib_ror')
             
-            #toss in orcid if exists
-            current_contrib_orcid = st.session_state.get('current_contrib_orcid', {})
-            manual_orcid = st.session_state.get('manual_contrib_orcid', '')
-            
-            if current_contrib_orcid:
-                contributor_data['orcid_data'] = current_contrib_orcid
-            elif manual_orcid and re.match(r'^\d{4}-\d{4}-\d{4}-\d{4}$', manual_orcid):
-                contributor_data['orcid_data']= {
-                    'orcid_id': manual_orcid,
-                    'display_name': f"{contrib_first} {contrib_last}",
-                    'institution': ""}
-            
-            #add in ror
+            #show selected ror
             current_contrib_ror = st.session_state.get('current_contrib_ror', {})
             if current_contrib_ror:
-                contributor_data['ror_data'] = current_contrib_ror
-            
-            st.session_state.contributors.append(contributor_data)
-            st.session_state.form_needs_clearing = True
-            # clear_contributor_form()
-            
-            st.success(f"Added contributor: {contributor_data['name']}")
-            st.rerun()
-    st.info("You can add as many contributors/co-authors as needed. Or skip this section if this dataset has no co-authors.")
-    #clearing form button
-    if clear_form:
-        clear_contributor_form()
-        st.rerun()
+                st.success(f"Selected ROR: {current_contrib_ror['name']} (ROR ID:{current_contrib_ror['ror_id']})")
         
+        if st.session_state.get("form_needs_clearing"):
+            st.session_state.form_needs_clearing = False
+            
+        #add more friends
+        st.divider()
+            
+        col1, col2= st.columns([1,1])
+        with col1:
+            add_contributor = st.button("Add this contributor", type = "primary")
+        with col2:
+            clear_form = st.button("Clear form")
+         
+    
+        #adding contrib
+        if add_contributor:
+            st.session_state.form_needs_clearing = True
+            if not contrib_first or not contrib_last:
+                st.error("Please enter first and last name")
+            else:
+                #prepare the data
+                contributor_data = {'name': f"{contrib_first.strip()} {contrib_last.strip()}",
+                                    'affiliation': contrib_affiliation.strip() if contrib_affiliation else ""}
+                
+                #toss in orcid if exists
+                current_contrib_orcid = st.session_state.get('current_contrib_orcid', {})
+                manual_orcid = st.session_state.get('manual_contrib_orcid', '').strip()
+    
+                if current_contrib_orcid:
+                    contributor_data['orcid_data'] = current_contrib_orcid
+                elif manual_orcid and re.match(r'^\d{4}-\d{4}-\d{4}-\d{4}$', manual_orcid):
+                    contributor_data['orcid_data']= {
+                        'orcid_id': manual_orcid,
+                        'display_name': f"{contrib_first} {contrib_last}",
+                        'institution': ""}
+                
+                #add in ror
+                current_contrib_ror = st.session_state.get('current_contrib_ror', {})
+                if current_contrib_ror:
+                    contributor_data['ror_data'] = current_contrib_ror
+                
+                st.session_state.contributors.append(contributor_data)
+                st.session_state.form_needs_clearing = True
+                # clear_contributor_form()
+                
+                st.success(f"Added contributor: {contributor_data['name']}")
+                st.rerun()
+        
+        if clear_form:
+            clear_contributor_form()
+            st.rerun()
+    
+    st.info("You can add as many contributors/co-authors as needed. Or skip this section if this dataset has no co-authors.")
+       
 
 #location location location
 def location_section():
@@ -825,11 +1012,11 @@ def location_section():
     
     if st.session_state.locations:
         for i, location in enumerate(st.session_state.locations):
-            with st.expander(f"{location['lake_name']} ({location['latitude']}, {location['longitude']}"):
+            with st.expander(f"{location['lake_name']} ({location['latitude']}, {location['longitude']})"):
                 col1, col2, col3 = st.columns([2,1,1])
                 with col1:
                     st.write(f"**Lake/Site name:** {location['lake_name']}")
-                    st.write(f"**Latitude (decimal degrees)):** {location['latitude']}")
+                    st.write(f"**Latitude (decimal degrees):** {location['latitude']}")
                     st.write(f"**Longitude (decimal degrees):** {location['longitude']}")
                 with col2:
                     if st.button(f"Edit", key=f"edit_location_{i}"):
@@ -852,14 +1039,17 @@ def location_section():
     editing_index = st.session_state.get('edit_location_index', None)
     if editing_index is not None:
         st.info(f"Editing location #{editing_index +1}")
-        
-    with st.form("add_location_form"):
+
+    #trying to get the form to clear are submission, on the struggle for some reason
+    form_key = f"location_form_{st.session_state.get('location_form_counter', 0)}"
+   
+    with st.form(form_key):
         #for editing, temp vals are good
         if editing_index is not None:
             default_lake = st.session_state.get('temp_lake_name', '')
             default_lat = st.session_state.get('temp_latitude', '')
             default_lon = st.session_state.get('temp_longitude', '')
-        else: #fresh and clean
+        else: #fresh and clean - new spot
             default_lake = ''
             default_lon = ''
             default_lat = ''
@@ -937,21 +1127,15 @@ def location_section():
                         
                         #clear editing status so theres no funny business
                         del st.session_state.edit_location_index
-                        #remove the temporary keys so they dont autofill with prev loc
-                        for key in ['temp_lake_name', 'temp_latitude', 'temp_longitude']:
-                            if key in st.session_state:
-                                del st.session_state[key]
                          
                     else:
                         #new location
                         st.session_state.locations.append(new_location)
                         
-                        #remove the temporary keys so they dont autofill with prev loc
-                        for key in ['temp_lake_name', 'temp_latitude', 'temp_longitude']:
-                            if key in st.session_state:
-                                del st.session_state[key]
+                        if 'location_form_counter' not in st.session_state:
+                            st.session_state.location_form_counter = 0
+                        st.session_state.location_form_counter += 1
                             
-                        st.success(f"Added location: {lake_name}")
                         
                     st.rerun()
         
@@ -968,8 +1152,9 @@ def location_section():
                 del st.session_state.temp_longitude       
             st.rerun()
     
-    
+        
     st.info("You can add multiple sampling locations if your dataset covers several sites/locations.")
+    
     if st.session_state.locations:
         st.success(f"{len(st.session_state.locations)} locations added")
         
@@ -979,9 +1164,9 @@ def temporal_section():
 
     col1, col2 = st.columns(2)
     with col1:
-        st.date_input("Start date (format: DD-MM-YYYY)", key = "start_date")
+        st.date_input("Start date (format: YYYY/MM/DD)", key = "start_date")
     with col2:
-        st.date_input("End date (format: DD-MM-YYYY)", key="end_date")
+        st.date_input("End date (format: YYYY/MM/DD)", key="end_date")
 
     #sneakey submit button
     st.divider()
