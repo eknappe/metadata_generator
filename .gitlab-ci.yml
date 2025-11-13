@@ -13,11 +13,16 @@ image_build:
   image: docker:stable
   services:
     - docker:dind
+    - command: ["--tls=false"]
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+    DOCKER_DRIVER: overlay2
   before_script:
     - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
   script:
     - CI_COMMIT_SHA_7=$(echo $CI_COMMIT_SHA | cut -c1-7)
     - docker build --tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA_7 .
     - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA_7
-  tags:
-    - image_build
+#  tags:
+#    - image_build
