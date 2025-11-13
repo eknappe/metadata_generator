@@ -1,9 +1,6 @@
 # For finding latest versions of the base image see
 # https://github.com/SwissDataScienceCenter/renkulab-docker
-FROM renku/renkulab-py:3.10-0.21.0
-
-# Uncomment and adapt if code is to be included in the image
-# COPY src /code/src
+FROM renku/renkulab-py:3.11-7922455
 
 # Uncomment and adapt if your R or python packages require extra linux (ubuntu) software
 # e.g. the following installs apt-utils and vim; each pkg on its own line, all lines
@@ -26,7 +23,7 @@ RUN mamba env update -q -f /tmp/environment.yml && \
 # RENKU_VERSION determines the version of the renku CLI
 # that will be used in this image. To find the latest version,
 # visit https://pypi.org/project/renku/#history.
-ARG RENKU_VERSION=2.9.2
+ARG RENKU_VERSION=2.9.4
 
 # to run streamlit
 COPY jupyter_notebook_config.py ${HOME}/.jupyter/
