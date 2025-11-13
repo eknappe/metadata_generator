@@ -12,8 +12,8 @@ image_build:
   stage: build
   image: docker:stable
   services:
-    - docker:dind
-    - command: ["--tls=false"]
+    - name: docker:dind
+      command: ["--tls=false"]
   variables:
     DOCKER_HOST: tcp://docker:2375
     DOCKER_TLS_CERTDIR: ""
