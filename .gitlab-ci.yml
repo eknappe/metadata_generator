@@ -10,7 +10,7 @@ stages:
 
 image_build:
   stage: build
-  image: docker:stable
+  image: docker:latest
   services:
     - name: docker:dind
       command: ["--tls=false"]
