@@ -15,7 +15,8 @@ FROM renku/renkulab-py:3.11-7922455
 
 # install the python dependencies
 COPY requirements.txt environment.yml /tmp/
-RUN mamba env update -q -f /tmp/environment.yml && \
+RUN CONDA_PKGS_DIRS=/tmp/conda-pkgs \
+    mamba env update -q -f /tmp/environment.yml && \    
     /opt/conda/bin/pip install -r /tmp/requirements.txt && \
     conda clean -y --all && \
     rm -rf /tmp/requirements.txt /tmp/environment.yml && \
