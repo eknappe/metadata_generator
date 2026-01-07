@@ -15,15 +15,15 @@ FROM renku/renkulab-py:3.11-7922455
 
 # install the python dependencies
 COPY requirements.txt environment.yml /tmp/
-RUN rm -rf /home/jovyan/.cache && \
-    mamba env create -q -f /tmp/environment.yml && \
+ENV XDG_CACHE_HOME=/opt/conda/cache \
+    CONDA_PKGS_DIRS=/opt/conda/pkgs
+    
+RUN mkdir -p /opt/conda/cache /opt/conda/pkgs && \
+    mamba env update -q -n base -f /tmp/environment.yml && \
+    conda clean -y --all
+    python -m pip install -r /tmp/requirements.txt &&\
     conda clean -y --all
 
-RUN /opt/conda/bin/pip install -r /tmp/requirements.txt &&\
-    conda clean -y --all
-
-RUN rm -rf /tmp/requirements.txt /tmp/environment.yml && \
-    conda env export -n "root"
 
 # RENKU_VERSION determines the version of the renku CLI
 # that will be used in this image. To find the latest version,
