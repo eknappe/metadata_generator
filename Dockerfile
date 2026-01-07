@@ -18,7 +18,7 @@ COPY requirements.txt environment.yml /tmp/
 RUN mamba env update -q -f /tmp/environment.yml && \
     /opt/conda/bin/pip install -r /tmp/requirements.txt && \
     conda clean -y --all && \
-    rm -rf /temp/requirements.txt /tmp/environment.yml &&\
+    rm -rf /tmp/requirements.txt /tmp/environment.yml && \
     conda env export -n "root"
 
 # RENKU_VERSION determines the version of the renku CLI
