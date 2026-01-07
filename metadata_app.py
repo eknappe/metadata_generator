@@ -70,7 +70,6 @@ def lookup_orcid_id(first_name, last_name, max_results =5):
         
         #orcid api lists the headers as the first entry, don't want that
         results = list(csv_reader)[1:max_results]
-        
         parsed_results = []
         for row in results:
             if len(row)>= 4 and row[0].strip():
@@ -258,7 +257,8 @@ def orcid_lookup_component(name_key_first, name_key_last, result_key):
             #if affiliation/institution is there then store
             if result['institution']:
                 st.write(f"Institution: {result['institution']}")
-            
+            else:
+                st.write(f"Institution not listed on ORCID website, ensure this is the correct person by looking at ORCID: https://orcid.org/orcid-search/search")
             col1,col2 = st.columns(2)
             
             #ask to use or not
@@ -398,6 +398,7 @@ def generate_metadata():
     #author/creator information
     author_first = st.session_state.get('author_first_name', '')
     author_last = st.session_state.get('author_last_name', '')
+    author_email = st.session_state.get('author_email', ' ')
     
     if author_first and author_last:
         creator = {"name": f"{author_first} {author_last}", 
@@ -508,6 +509,18 @@ def generate_metadata():
         keywords_list = [k.strip() for k in keywords.replace('\n', ',').split(',') if k.strip()]
         if keywords_list:
             metadata["data"]["attributes"]["subjects"] = [{"subject": kw, "xml:lang":"en-us"} for kw in keywords_list]
+    
+    #add creator email to the description (there is not currently Jan 2026 not a field for the creator email)
+    #hopefully this changes, until then
+    description_text = metadata["data"]["attributes"]["descriptions"][0]["description"]
+    if author_email:
+        #add to description
+        metadata["data"]["attributes"]["descriptions"].append({
+            "description": f"Creator contact: {author_first} {author_last} - {author_email}",
+            "descriptionType": "Other",
+            "xlm:lang": "en-us"
+        })
+    
     
     #add optional fields
     if st.session_state.get('dataset_doi'):
@@ -1227,7 +1240,7 @@ def export_section():
         if complete:
             st.success(f"Completed: {field}")
         else:
-            st.success(f"Incomplete: {field}")
+            st.error(f"Incomplete: {field}")
      
     #missed some things, let them know                
     if missing:
@@ -1253,12 +1266,12 @@ def export_section():
             col1,col2 = st.columns([2,2])
             with col1:
                 filename_prefix = st.text_input(
-                    "Filename prefix", value= "my_dataset", placeholder = "dataset_name", 
+                    "Enter dataset name/filename prefix:", value= "my_dataset", placeholder = "dataset_name",
                     help = "Final filename will be [prefix]_metadata_YYYYMMDD_HHMMSS.json")
             with col2:
                 #show the preview filename
-                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-                full_filename=f"{filename_prefix}_metadata_{timestamp}.json"
+                timestamp = datetime.now().strftime('%Y%m%d')
+                full_filename=f"metadata_{filename_prefix}_{timestamp}.json"
                 st.write("**Preview:**")
                 st.code(full_filename, language ="text")
             

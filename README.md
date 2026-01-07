@@ -48,8 +48,8 @@ The streamlit app is also hosted on Renku, which would not require the user to h
 
 ### Using the streamlit app on your computer
 Make sure python and the streamlit library (along with any dependencies) are installed on your machine. Clone the repo. To start the streamlit app:
-        streamlit run metadata_app.py
-        python -m streamlit run metadata_app.py
+        `streamlit run metadata_app.py` or 
+        `python -m streamlit run metadata_app.py` depending on how you are running it.
 
 This will open the app within your browser and allow you to fill in the necessary information. At the end, you can preview the information you have provided, correct as needed, and then save the metadata file (it will save to the downloads in your browser with the datastring of when the file was created). The file will not be able to be exported until all the required fields (author name, email, dataset title and description, and location are filled out). 
 
