@@ -20,9 +20,9 @@ ENV XDG_CACHE_HOME=/opt/conda/cache \
     
 RUN mkdir -p /opt/conda/cache /opt/conda/pkgs && \
     mamba env update -q -n base -f /tmp/environment.yml && \
-    conda clean -y --all
-    python -m pip install -r /tmp/requirements.txt &&\
-    conda clean -y --all
+    /opt/conda/bin/pip install -r /tmp/requirements.txt && \
+    conda clean -y --all &&\
+    rm -rf /tmp/requirements.txt /tmp/environment.yml
 
 
 # RENKU_VERSION determines the version of the renku CLI
