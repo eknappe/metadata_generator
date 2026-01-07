@@ -15,7 +15,8 @@ FROM renku/renkulab-py:3.11-7922455
 
 # install the python dependencies
 COPY requirements.txt environment.yml /tmp/
-RUN mamba env update -q -f /tmp/environment.yml && \
+RUN rm -rf /home/jovyan/.cache && \
+    mamba env update -q -f /tmp/environment.yml && \
     conda clean -y --all
 
 RUN /opt/conda/bin/pip install -r /tmp/requirements.txt &&\
