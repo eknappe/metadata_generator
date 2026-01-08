@@ -15,15 +15,13 @@ FROM renku/renkulab-py:3.11-7922455
 
 # install the python dependencies
 COPY requirements.txt environment.yml /tmp/
-
-ENV XDG_CACHE_HOME=/opt/conda/cache \
-    CONDA_PKGS_DIRS=/opt/conda/pkgs
     
 RUN mkdir -p /opt/conda/cache /opt/conda/pkgs && \
     mamba env update -q -n base -f /tmp/environment.yml && \
     /opt/conda/bin/pip install -r /tmp/requirements.txt && \
     conda clean -y --all && \
-    rm -rf /tmp/requirements.txt /tmp/environment.yml
+    rm -rf /opt/conda/cache /opt/conda/pkgs && \
+    conda env export -n "root"
 
 
 # RENKU_VERSION determines the version of the renku CLI
